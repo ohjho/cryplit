@@ -6,10 +6,10 @@ from datetime import timedelta
 
 from toolbox.st_utils import show_logo, get_timeframe_params, show_plotly
 from toolbox.plotly_utils import plotly_ohlc_chart, get_moving_average_col, \
-                            add_Scatter, add_Scatter_Event, add_color_event_ohlc
+							add_Scatter, add_Scatter_Event, add_color_event_ohlc
 from toolbox.ta_utils import add_moving_average, add_MACD, add_AD, add_OBV, add_RSI, \
-                            add_ADX, add_Impulse, add_ATR, add_avg_penetration, \
-                            market_classification, efficiency_ratio
+							add_ADX, add_Impulse, add_ATR, add_avg_penetration, \
+							market_classification, efficiency_ratio
 # from strategies.macd_divergence import detect_macd_divergence
 # from strategies.kangaroo_tails import detect_kangaroo_tails
 # from strategies.vol_breakout import detect_vol_breakout, detect_volatility_contraction, \
@@ -139,6 +139,7 @@ def add_indicators(data, st_asset):
 
 def test_ccxt():
 	l_col, c_col, r_col = st.columns(3)
+	url_params = st.experimental_get_query_params()
 	l_exchanges = ccxt.exchanges
 	exchange_name = r_col.selectbox('select your exchange',
 					options = l_exchanges,
@@ -147,12 +148,20 @@ def test_ccxt():
 		return None
 	exchange = getattr(ccxt, exchange_name)()
 
+	# Getting Symbol (currency pairs)
 	l_ccy = get_currencies(exchange.load_markets())
-	ccy = l_col.selectbox(f'Currency ({len(l_ccy)})', l_ccy, index = l_ccy.index('BTC'),
-					help = f'see [most active pairs](https://www.investing.com/crypto/top-pairs) or [by market cap](https://coinmarketcap.com/all/views/all/)')
-	base_ccy = c_col.selectbox('Base Currency', l_ccy, index = l_ccy.index('USDT'),
-					help = f'use [stablecoins](https://coinmarketcap.com/view/stablecoin/) to relate to "physical" currencies')
+	url_symbol = url_params['symbol'][0].upper().split('/') if 'symbol' in url_params else None
+	if url_symbol:
+		assert len(url_symbol)==2, f'expected currency pair separated by /, you provided: {url_params["symbol"]}'
+	ccy = l_col.selectbox(f'Currency ({len(l_ccy)})', l_ccy,
+			index = l_ccy.index(url_symbol[0] if url_symbol else 'BTC'),
+			help = f'see [most active pairs](https://www.investing.com/crypto/top-pairs) or [by market cap](https://coinmarketcap.com/all/views/all/)')
+	base_ccy = c_col.selectbox('Base Currency', l_ccy,
+				index = l_ccy.index(url_symbol[1] if url_symbol else 'USDT'),
+				help = f'use [stablecoins](https://coinmarketcap.com/view/stablecoin/) to relate to "physical" currencies')
 	symbol = f'{ccy}/{base_ccy}'.upper()
+
+	# setting timeframe
 	timeframe_params = get_timeframe_params(
 						st_asset = st.sidebar.expander('timeframe', expanded = True),
 						default_tenor='6m', default_interval = '1d',
@@ -160,9 +169,15 @@ def test_ccxt():
 						l_interval_options = list(exchange.timeframes))
 	if 'm' in timeframe_params['interval'] or 'h' in timeframe_params['interval']:
 		timeframe_params['data_start_date'] = timeframe_params['start_date'] + timedelta(days = -2)
-	print(timeframe_params)
-	chart_height = st.sidebar.slider('Chart Height', value = 800,
-						min_value = 800, max_value = 1500, step = 100)
+
+	st.experimental_set_query_params(symbol = symbol,
+		bar = timeframe_params['interval'],
+		td = timeframe_params['end_date'],
+		period = timeframe_params['tenor']
+		)
+
+	chart_height = st.sidebar.slider('Chart Height', value = 1200,
+						min_value = 800, max_value = 1600, step = 100)
 
 	if symbol:
 		df = ccxt_get_ohlcv(exchange = exchange,

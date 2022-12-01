@@ -60,9 +60,14 @@ def get_timeframe_params(st_asset , data_buffer_tenor = '1y', default_tenor = '2
     ):
     ''' get user inputs and return timeframe params in dictionary {'start_date':..., 'end_date':..., 'data_start_date':...,'interval':...,'tenor':...}
     '''
+    url_params = st.experimental_get_query_params()
+    default_interval = url_params['bar'][0] if 'bar' in url_params else default_interval
+    url_trade_date = datetime.datetime.strptime(url_params['td'][0], '%Y-%m-%d'
+                        ) if 'td' in url_params else None
+    default_tenor = url_params['period'][0] if 'period' in url_params else default_tenor
     with st_asset:
         today = datetime.date.today()
-        end_date = st.date_input('Period End Date', value = today)
+        end_date = st.date_input('Period End Date', value = url_trade_date if url_trade_date else today)
         tenor = None
         if st.checkbox('pick start date'):
             start_date = st.date_input('Period Start Date', value = today - datetime.timedelta(days = 365))
